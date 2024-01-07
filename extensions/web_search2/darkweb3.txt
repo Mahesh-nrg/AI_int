@@ -1,0 +1,78 @@
+import gradio as gr
+import modules.shared as shared
+from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
+from typing import List, Tuple
+import lxml.etree as etree
+import requests
+
+# Define constants for the Dark Web search
+DARKWEB_SEARCH_URL = 'https://darkweblink.com/'
+DARKWEB_SEARCH_LIMIT = 10
+
+# Search access through Dark Websites
+search_access = True
+
+class CustomDataset(Dataset):
+    def __init__(self, urls: List[str], context: str = None):
+        self.urls = urls
+        self.context = context
+
+    def __len__(self):
+        return len(self.urls)
+
+    def __getitem__(self, index: int) -> Tuple[str, str]:
+        url = self.urls[index]
+        response = requests.get(url).text
+        html_doc = etree.HTML(response)
+        link = html_doc.find('a').get('href')[7:]
+        description = html_doc.find('.product-description').text.strip()
+        return (link, description)
+
+def input_modifier(user_input, state):
+    global search_access
+    if not search_access:
+        if user_input.lower().startswith("search"):
+            shared.processing_message = "*Searching Dark Web...*"
+            # Add code to perform search on Dark Websites
+            search_data = []
+            for i in range(DARKWEB_SEARCH_LIMIT):
+                start_time = time.time()
+                search_start_url = DARKWEB_SEARCH_URL + user_input.strip("search")
+                search_results = requests.get(search_start_url).text
+                search_end_time = time.time()
+                search_runtime = search_end_time - start_time
+                # Add code to parse search results
+                search_data += ...
+            state["context"] = "Dark Web search completed. Found relevant information at the given URLs."
+            user_prompt = f"{user_input}\nFound information on Deep Web at these URLs: {search_data}"
+            print(f"{user_prompt}")
+            return user_prompt
+    else:
+        shared.processing_message = "*Typing...*"
+        return user_input
+
+
+def output_modifier(output):
+    return output
+
+def bot_prefix_modifier(prefix):
+    return prefix
+
+def print_data(data):
+    return data
+
+def get_text(url):
+    response = requests.get(url)
+    soup = "\n".join(
+        [
+            p.text
+            for p in BeautifulSoup(response.text, "html.parser").find_all(
+                ["section", "p"]
+            )
+        ]
+    )
+    soup = soup[:2044]
+    text = re.sub(r"\s+", " ", soup.strip())
+    output = "\n".join([text, f" -Source: {response.url}"])
+    return output

@@ -1,0 +1,101 @@
+import gradio as gr
+import modules.shared as shared
+from googlesearch import search
+from bs4 import BeautifulSoup
+import re
+import requests
+import tor
+
+# Set up Tor connection
+tor.set_tor_enabled(True)
+
+# Define a function to access the dark web
+def dark_web_access(query):
+    # Use DuckDuckGo instead of Google for searching the dark web
+    search_results = search(query, num_results=1, engine="duckduckgo")
+    
+    # Extract the first result and its URL
+    result = search_results[0]
+    url = result["url"]
+    
+    # Check if the URL is accessible via Tor
+    try:
+        request = requests.get(url, timeout=30, proxies={"https://localhost:9050"})
+        soup = BeautifulSoup(request.content, "html.parser")
+        return soup
+    except requests.exceptions.ConnectionError:
+        pass
+    
+    # If the URL is not accessible via Tor, try using a public proxy
+    try:
+        proxy = Shared.proxy_list[Shared.proxy_index]
+        request = requests.get(url, timeout=30, proxies={"http://"+proxy+"/"})
+        soup = BeautifulSoup(request.content, "html.parser")
+        return soup
+    except IndexError:
+        pass
+    
+    # If no working proxy is found, return None
+    return None
+
+# Modify the input modifier to include dark web searching
+def input_modifier(user_input, state):
+    global search_access
+    if search_access:
+        if user_input.lower().startswith("darknet"):
+            shared.processing_message = "*Searching dark web..."*
+            try:
+                query = user_input.strip("darknet").strip()
+                search_results = dark_web_access(query)
+                search_data = [(get_text(result), result) for result in search_results]
+                state["context_instruct"] = "Answer the question according to the dark web search results provided and provide source where necessary"
+                state["context"] = "Summarize the dark web results and answer the question correctly, provide links where necessary"
+                user_prompt = f"{user_input}\n dark web results: {search_data}"
+                print(f"{user_prompt}")
+                return user_prompt
+            except Exception as e:
+                print(type(e), e)
+                state["context_instruct"] = "Tell the user they are experiencing connection issues"
+                return ""
+
+    shared.processing_message = "*Typing...*"
+    return user_input
+
+# Add a new function to extract text from a dark web page
+def get_dark_text(url):
+    response = requests.get(url, timeout=30, proxies={"https://localhost:9050"})
+    soup = BeautifulSoup(response.content, "html.parser")
+    text = ""
+    for element in soup.find_all(["div", "p"]):
+        text += element.text.strip() + "\n"
+    return text
+
+# Modify the output modifier to include dark web links
+def output_modifier(output):
+    return output
+
+# Modify the bot prefix modifier to include dark web links
+def bot_prefix_modifier(prefix):
+    return prefix
+
+# Print the data returned by the dark web search
+def print_data(data):
+    return data
+
+# Define a function to check whether a given URL is accessible via Tor
+def is_url_accessible(url):
+    try:
+        requests.head(url, timeout=30, proxies={"https://localhost:9050"})
+        return True
+    except requests.exceptions.ConnectionError:
+        return False
+
+# Use the above functions to modify the main chatbot loop
+if __name__ == "__main__":
+    chatbot = ChatBot(
+        input_modifier=input_modifier,
+        output_modifier=output_modifier,
+        bot_prefix_modifier=bot_prefix_modifier,
+        print_data=print_data,
+        is_url_accessible=is_url_accessible
+    )
